@@ -127,7 +127,7 @@ export const generateDocumentDefinition = (data: RenderData, loadedScripts: Set<
                     text: w.word || "-",
                     fillColor: rowColor,
                     font: wordFont,
-                    isRTL: isRTLSentence(w.word), // Strict Unicode-based direction evaluation
+                    direction: isRTLSentence(w.word) ? 'rtl' : 'ltr',
                     bold: true,
                     fontSize: 12,
                     color: "#000000",
@@ -145,7 +145,7 @@ export const generateDocumentDefinition = (data: RenderData, loadedScripts: Set<
                     text: firstEx?.sentence || "-",
                     fillColor: rowColor,
                     font: sentenceFont,
-                    isRTL: isRTLSentence(firstEx?.sentence),
+                    direction: isRTLSentence(firstEx?.sentence) ? 'rtl' : 'ltr',
                     italics: true,
                     color: "#444444",
                     margin: [0, 5, 0, 5]

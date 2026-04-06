@@ -340,7 +340,7 @@ export default function Dashboard() {
             setTimeout(() => URL.revokeObjectURL(url), 100);
         } catch (error) {
             console.error("PDF EXPORT ERROR: ", error);
-            handleError(error, { title: "PDF Export failed", description: "Could not generate vector PDF." });
+            handleError(error, { title: "PDF Export failed", description: "Could not generate vector PDF: " + (error instanceof Error ? error.message : String(error)) });
         } finally {
             setIsExportingPdf(false);
         }

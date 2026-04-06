@@ -16,8 +16,11 @@ import { generateDocumentDefinition, RenderData } from "./tableRenderer";
 export const startPdfExport = async (userId: string, userEmail: string): Promise<Blob> => {
     try {
         // 1. Initialize pdfMake modules
+        // In pdfmake v0.3.x, named exports are: createPdf, virtualfs, fonts
+        // The module does NOT use a `.default` export — import the whole module.
         const pdfMakeModule = await import("pdfmake/build/pdfmake");
-        const pdfMake = pdfMakeModule.default || pdfMakeModule;
+        // Prefer the named createPdf; fall back to module root for CJS interop
+        const pdfMake: any = pdfMakeModule;
 
         // 2. Fetch User Data
         const { data: langs } = await supabase.from("languages").select("*").eq("user_id", userId);
@@ -69,24 +72,35 @@ export const startPdfExport = async (userId: string, userEmail: string): Promise
         // 6. Generate Definition
         const docDefinition = generateDocumentDefinition(renderData, requiredScripts);
 
-        if (typeof (pdfMake as any).addVirtualFileSystem === 'function') {
-            (pdfMake as any).addVirtualFileSystem(vfs);
+        // 7. Fire pure-vector PDF creation
+        const targetPdfMake = pdfMake.default || pdfMake;
+
+        // Use native methods available in v0.3.x for VFS integration
+        if (typeof targetPdfMake.addVirtualFileSystem === 'function') {
+            targetPdfMake.addVirtualFileSystem(vfs);
         } else {
-            (pdfMake as any).vfs = vfs;
-            (pdfMake as any).virtualfs = vfs;
+            targetPdfMake.vfs = targetPdfMake.vfs ? { ...targetPdfMake.vfs, ...vfs } : vfs;
+            targetPdfMake.virtualfs = targetPdfMake.vfs;
         }
 
-        if (typeof (pdfMake as any).setFonts === 'function') {
-            (pdfMake as any).setFonts(docDefinition.fonts);
+        if (typeof targetPdfMake.addFonts === 'function') {
+            targetPdfMake.addFonts(docDefinition.fonts);
+        } else if (typeof targetPdfMake.setFonts === 'function') {
+            targetPdfMake.setFonts(docDefinition.fonts);
         } else {
-            (pdfMake as any).fonts = docDefinition.fonts;
+            targetPdfMake.fonts = { ...(targetPdfMake.fonts || {}), ...docDefinition.fonts };
         }
 
         console.log("INJECTED VFS KEYS:", Object.keys(vfs));
         console.log("GENERATION FONTS:", Object.keys(docDefinition.fonts || {}));
 
-        // 7. Fire pure-vector PDF creation
-        const pdf = (pdfMake as any).createPdf(docDefinition);
+        if (typeof targetPdfMake.createPdf !== 'function') {
+            throw new Error('pdfmake createPdf API not found. Check pdfmake version compatibility.');
+        }
+
+        const pdf = targetPdfMake.createPdf(docDefinition);
+
+        // pdfmake v0.3.x getBlob() returns a Promise
         const blob = await pdf.getBlob();
         return blob as Blob;
 
